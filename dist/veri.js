@@ -47626,19 +47626,9 @@ class Audio {
     }
 
     // function to load samples
-    loadSample(url, doAfterLoading) {
-        var fetchSound = new XMLHttpRequest(); // Load the Sound with XMLHttpRequest
-        fetchSound.open("GET", url, true); // Path to Audio File
-        fetchSound.responseType = "arraybuffer"; // Read as Binary Data
-        fetchSound.onload = () => {
-            this.context.decodeAudioData(fetchSound.response)
-                .then(doAfterLoading);
-        };
-        fetchSound.onerror = function(err) {
-            console.log('error loading sound ' + url);
-            console.log(err);
-        };
-        fetchSound.send();
+    loadSample(context, url, maxOrder, doAfterLoading) {
+      var loader_sound = new ambisonics.HOAloader(context, maxOrder, url, doAfterLoading);
+      loader_sound.load();
     }
 
     setup(vrControl, vrParams) {
@@ -47694,7 +47684,7 @@ class Audio {
             gainOut.connect(this.context.destination);
 
             // load the audio
-            this.loadSample(vrParams.audio.src, decodedBuffer => {
+            this.loadSample(this.context, vrParams.audio.src, this.order, decodedBuffer => {
                 sound = this.context.createBufferSource();
                 sound.buffer = decodedBuffer;
                 sound.loop = true;
