@@ -14,8 +14,23 @@ class Audio {
 
     // function to load samples
     loadSample(context, url, maxOrder, doAfterLoading) {
-      var loader_sound = new ambisonics.HOAloader(context, maxOrder, url, doAfterLoading);
-      loader_sound.load();
+      if (maxOrder == 1) {
+        var loader_sound = new ambisonics.HOAloader(context, maxOrder, url, doAfterLoading);
+        loader_sound.load();
+      } else {
+        var fetchSound = new XMLHttpRequest(); // Load the Sound with XMLHttpRequest
+        fetchSound.open("GET", url, true); // Path to Audio File
+        fetchSound.responseType = "arraybuffer"; // Read as Binary Data
+        fetchSound.onload = () => {
+            this.context.decodeAudioData(fetchSound.response)
+                .then(doAfterLoading);
+        };
+        fetchSound.onerror = function(err) {
+            console.log('error loading sound ' + url);
+            console.log(err);
+        };
+        fetchSound.send();
+      }
     }
 
     setup(vrControl, vrParams) {
