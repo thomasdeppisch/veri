@@ -47667,6 +47667,9 @@ class Audio {
             // "ambisonic" mode reads an ambisonic audio source
             var AudioContext = window.AudioContext;
             this.context = new AudioContext();
+            if (vrParams.audio.multichannel_out)
+              this.context.destination.channelCount = this.context.destination.maxChannelCount;
+
             var sound;
 
             this.order = vrParams.audio.order;
@@ -47677,10 +47680,6 @@ class Audio {
             // initialize ambisonic rotator
             this.rotator = new ambisonics.sceneRotator(this.context, this.order); // eslint-disable-line
             console.log(this.rotator);
-
-            // initialize ambisonic decoder
-            var decoder = new ambisonics.binDecoder(this.context, this.order); // eslint-disable-line
-            console.log(decoder);
 
             this.channel_order = vrParams.audio.channel_order;
             // FuMa to ACN converter
@@ -47694,9 +47693,19 @@ class Audio {
             var gainOut = this.context.createGain();
 
             // connect graph
-            this.rotator.out.connect(decoder.in);
-            decoder.out.connect(gainOut);
-            gainOut.connect(this.context.destination);
+            if (vrParams.audio.multichannel_out) {
+              this.rotator.out.connect(this.context.destination);
+              // todo: decoding
+              
+            } else {
+              // initialize ambisonic binaural decoder
+              var decoder = new ambisonics.binDecoder(this.context, this.order); // eslint-disable-line
+              console.log(decoder);
+
+              this.rotator.out.connect(decoder.in);
+              decoder.out.connect(gainOut);
+              gainOut.connect(this.context.destination);
+            }
 
             // load the audio
             this.loadSample(this.context, vrParams.audio.src, this.order, decodedBuffer => {
