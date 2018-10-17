@@ -47627,7 +47627,7 @@ class Audio {
 
     // function to load samples
     loadSample(context, url, maxOrder, doAfterLoading) {
-      if (maxOrder == 1) {
+      if (maxOrder != 1) {
         var loader_sound = new ambisonics.HOAloader(context, maxOrder, url, doAfterLoading);
         loader_sound.load();
       } else {
