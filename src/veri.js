@@ -63,7 +63,11 @@ class Veri {
 
     // do next animation frame
     doAnimationFrame() {
-        this.effect.requestAnimationFrame(this.doAnimationFrame.bind(this));
+        if (this.vrEnabled)
+            this.effect.requestAnimationFrame(this.doAnimationFrame.bind(this));
+        else
+            requestAnimationFrame(this.doAnimationFrame.bind(this));
+
         if (this.videoPlaying) {
             this.draw(this.renderer.domElement, this.renderer.context, this.videoElement);
             if (typeof this.vrParams.onDraw === 'function') {

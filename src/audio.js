@@ -8,6 +8,8 @@ class Audio {
         this.audioLoader = null;
         this.context = null;
         this.rotator = null;
+        this.order = null;
+        this.channel_order = null;
     }
 
     // function to load samples
@@ -49,23 +51,31 @@ class Audio {
             this.context = new AudioContext();
             var sound;
 
+            this.order = vrParams.audio.order;
+
+            if (!this.order)
+              this.order = 1;
+
             // initialize ambisonic rotator
-            this.rotator = new ambisonics.sceneRotator(this.context, 1); // eslint-disable-line
+            this.rotator = new ambisonics.sceneRotator(this.context, this.order); // eslint-disable-line
             console.log(this.rotator);
 
             // initialize ambisonic decoder
-            var decoder = new ambisonics.binDecoder(this.context, 1); // eslint-disable-line
+            var decoder = new ambisonics.binDecoder(this.context, this.order); // eslint-disable-line
             console.log(decoder);
 
+            this.channel_order = vrParams.audio.channel_order;
             // FuMa to ACN converter
-            var converterF2A = new ambisonics.converters.wxyz2acn(this.context); // eslint-disable-line
-            console.log(converterF2A);
+            if (this.channel_order == 'fuma') {
+              var converterF2A = new ambisonics.converters.wxyz2acn(this.context); // eslint-disable-line
+              console.log(converterF2A);
+              converterF2A.out.connect(this.rotator.in);
+            }
 
             // output gain
             var gainOut = this.context.createGain();
 
             // connect graph
-            converterF2A.out.connect(this.rotator.in);
             this.rotator.out.connect(decoder.in);
             decoder.out.connect(gainOut);
             gainOut.connect(this.context.destination);
@@ -75,7 +85,11 @@ class Audio {
                 sound = this.context.createBufferSource();
                 sound.buffer = decodedBuffer;
                 sound.loop = true;
-                sound.connect(converterF2A.in);
+                if (this.channel_order == 'fuma') {
+                  sound.connect(converterF2A.in);
+                } else {
+                  sound.connect(this.rotator.in);
+                }
                 sound.start(0);
                 sound.isPlaying = true;
             });
