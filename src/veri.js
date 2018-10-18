@@ -4,7 +4,7 @@
 const ee = require('event-emitter');
 const THREE = require('three');
 const WEBVR = require('./lib/WebVR');
-const Stats = require('./lib/stats.min');
+//const Stats = require('./lib/stats.min');
 require('./lib/VRControls');
 require('./lib/ViveController');
 require('./lib/OBJLoader');
@@ -89,7 +89,7 @@ class Veri {
 
         // update the position of the camera
         this.controls.update();
-        this.stats.update();
+        //this.stats.update();
         if (!this.originalCameraDirection) {
             this.originalCameraDirection = cameraDirection.clone();
             console.log(`setting original camera direction to ${Veri.showVec(cameraDirection)}`);
@@ -269,8 +269,8 @@ class Veri {
         }
 
         // add the stats
-        this.stats = new Stats();
-        document.body.appendChild(this.stats.dom);
+        //this.stats = new Stats();
+        //document.body.appendChild(this.stats.dom);
 
         // obtain parameters, applying defaults where necessary
         this.vrParams = vrParams;

@@ -47623,6 +47623,9 @@ class Audio {
         this.rotator = null;
         this.order = null;
         this.channel_order = null;
+        this.sound = null;
+        this.decoder = null;
+        this.gainOut = null;
     }
 
     // function to load samples
@@ -47667,19 +47670,16 @@ class Audio {
             // "ambisonic" mode reads an ambisonic audio source
             var AudioContext = window.AudioContext;
             this.context = new AudioContext();
-            if (vrParams.audio.multichannel_out)
-              this.context.destination.channelCount = this.context.destination.maxChannelCount;
-
             var sound;
 
             this.order = vrParams.audio.order;
-
             if (!this.order)
               this.order = 1;
 
             // initialize ambisonic rotator
             this.rotator = new ambisonics.sceneRotator(this.context, this.order); // eslint-disable-line
             console.log(this.rotator);
+
 
             this.channel_order = vrParams.audio.channel_order;
             // FuMa to ACN converter
@@ -47690,37 +47690,47 @@ class Audio {
             }
 
             // output gain
-            var gainOut = this.context.createGain();
+            this.gainOut = this.context.createGain();
 
             // connect graph
             if (vrParams.audio.multichannel_out) {
-              this.rotator.out.connect(this.context.destination);
-              // todo: decoding
-              
+              this.decoder = new jsonDecoder(this.context, this.order);
+              console.log(this.decoder);
+
+              this.decoder.loadDecoderMtx(vrParams.audio.decoder_file);
             } else {
               // initialize ambisonic binaural decoder
-              var decoder = new ambisonics.binDecoder(this.context, this.order); // eslint-disable-line
-              console.log(decoder);
-
-              this.rotator.out.connect(decoder.in);
-              decoder.out.connect(gainOut);
-              gainOut.connect(this.context.destination);
+              this.decoder = new ambisonics.binDecoder(this.context, this.order); // eslint-disable-line
+              console.log(this.decoder);
             }
 
-            // load the audio
-            this.loadSample(this.context, vrParams.audio.src, this.order, decodedBuffer => {
-                sound = this.context.createBufferSource();
-                sound.buffer = decodedBuffer;
-                sound.loop = true;
-                if (this.channel_order == 'fuma') {
-                  sound.connect(converterF2A.in);
-                } else {
-                  sound.connect(this.rotator.in);
-                }
-                sound.start(0);
-                sound.isPlaying = true;
-            });
+            this.audioSrc = vrParams.audio.src;
+
         }
+    }
+
+    initAudio() {
+        // problem: audio wird gestartet bzw. routing wird gemacht, bevor decoder geladen
+        this.rotator.out.connect(this.decoder.in);
+        this.decoder.out.connect(this.gainOut);
+        this.gainOut.connect(this.context.destination);
+
+        // load the audio
+        this.loadSample(this.context, this.audioSrc, this.order, decodedBuffer => {
+            this.sound = this.context.createBufferSource();
+            this.sound.buffer = decodedBuffer;
+            this.sound.loop = true;
+            if (this.channel_order == 'fuma') {
+              this.sound.connect(converterF2A.in);
+            } else {
+              this.sound.connect(this.rotator.in);
+            }
+      })
+    }
+
+    startAudio() {
+      this.sound.start(0);
+      this.sound.isPlaying = true;
     }
 
     changeOrientation(cameraDirection) {
@@ -50095,20 +50105,13 @@ return r.forEach(function(e,t){n.getChannelData(t).set(e)}),{index:e[0],x:e[1][0
 }function h(e,t){if(!t)return f(c(d(e,0)),e,0);for(var r=new Array(t),n=0;n<t;++n)r[n]=[];for(var n=0,a=e.length;n<a;++n)for(var i=e[n],o=0,s=i.length;o<s;++o)r[i[o]].push(n);return r}function m(e){for(var t=[],r=0,n=e.length;r<n;++r)for(var a=e[r],i=0|a.length,o=1,s=1<<i;o<s;++o){for(var c=[],l=0;l<i;++l)o>>>l&1&&c.push(a[l]);t.push(c)}return u(t)}function d(e,t){if(t<0)return[];for(var r=[],n=(1<<t+1)-1,a=0;a<e.length;++a)for(var i=e[a],o=n;o<1<<i.length;o=M.nextCombination(o)){for(var s=new Array(t+1),c=0,l=0;l<i.length;++l)o&1<<l&&(s[c++]=i[l]);r.push(s)}return u(r)}function p(e){for(var t=[],r=0,n=e.length;r<n;++r)for(var a=e[r],i=0,o=a.length;i<o;++i){for(var s=new Array(a.length-1),c=0,l=0;c<o;++c)c!==i&&(s[l++]=a[c]);t.push(s)}return u(t)}function v(e,t){for(var r=new b(t),n=0;n<e.length;++n)for(var a=e[n],i=0;i<a.length;++i)for(var o=i+1;o<a.length;++o)r.link(a[i],a[o]);for(var s=[],u=r.ranks,n=0;n<u.length;++n)u[n]=-1;for(var n=0;n<e.length;++n){var c=r.find(e[n][0]);u[c]<0?(u[c]=s.length,s.push([e[n].slice(0)])):s[u[c]].push(e[n].slice(0))}return s}function g(e){for(var t=c(u(d(e,0))),r=new b(t.length),n=0;n<e.length;++n)for(var a=e[n],i=0;i<a.length;++i)for(var o=l(t,[a[i]]),s=i+1;s<a.length;++s)r.link(o,l(t,[a[s]]));for(var f=[],h=r.ranks,n=0;n<h.length;++n)h[n]=-1;for(var n=0;n<e.length;++n){var m=r.find(l(t,[e[n][0]]));h[m]<0?(h[m]=f.length,f.push([e[n].slice(0)])):f[h[m]].push(e[n].slice(0))}return f}function y(e,t){return t?v(e,t):g(e)}var M=e("bit-twiddle"),b=e("union-find");r.dimension=n,r.countVertices=a,r.cloneCells=i,r.compareCells=o,r.normalize=u,r.unique=c,r.findCell=l,r.incidence=f,r.dual=h,r.explode=m,r.skeleton=d,r.boundary=p,r.connectedComponents=y},{"bit-twiddle":37,"union-find":84}],81:[function(e,t,r){function n(e,t,r,n,a){return o(0,e,t,r,n,a)}function a(e,t,r,n,a){var i,s,u,c;return 0==t?(i=o(1,e,1,r,n,a),s=o(-1,e,-1,r,n,a),u=i+s):t>0?(c=1==t?1:0,i=o(1,e,t-1,r,n,a),s=o(-1,e,-t+1,r,n,a),u=i*Math.sqrt(1+c)-s*(1-c)):(c=t==-1?1:0,i=o(1,e,t+1,r,n,a),s=o(-1,e,-t-1,r,n,a),u=i*(1-c)+s*Math.sqrt(1+c)),u}function i(e,t,r,n,a){var i,s,u;return 0==t?console.error("should not be called"):t>0?(i=o(1,e,t+1,r,n,a),s=o(-1,e,-t-1,r,n,a),u=i+s):(i=o(1,e,t-1,r,n,a),s=o(-1,e,-t+1,r,n,a),u=i-s),u}function o(e,t,r,n,a,i){var o,s,u,c;return o=a[e+1][2],s=a[e+1][0],u=a[e+1][1],c=n==-t?o*i[r+t-1][0]+s*i[r+t-1][2*t-2]:n==t?o*i[r+t-1][2*t-2]-s*i[r+t-1][0]:u*i[r+t-1][n+t-1]}var s=e("numeric"),u=function(e,t,r,n){var a,i=t.length,o=(e+1)*(e+1),u=[,];o>i&&console.log("The SHT degree is too high for the number of data points"),0==r&&(t=f(t));for(var c=0;c<t.length;c++)u[c]=t[c][2];Y_N=m(e,t),a=0==n?s.mul(1/i,Y_N):g(s.transpose(Y_N));var l=s.dotMV(a,u);return l},c=function(e,t){for(var r=t,n=Math.sqrt(e.length)-1,a=m(n,t),i=s.dotVM(e,a),o=0;o<t.length;o++)r[o][2]=i[o];return r},l=function(e){for(var t=0;t<e.length;t++)console.log(e[t])},f=function(e,t){for(var r,n,a,i=new Array(e.length),o=0;o<e.length;o++)r=Math.atan2(e[o][1],e[o][0]),n=Math.atan2(e[o][2],Math.sqrt(e[o][0]*e[o][0]+e[o][1]*e[o][1])),1==t?i[o]=[r,n]:(a=Math.sqrt(e[o][0]*e[o][0]+e[o][1]*e[o][1]+e[o][2]*e[o][2]),i[o]=[r,n,a]);return i},h=function(e){for(var t,r,n,a=new Array(e.length),i=0;i<e.length;i++)t=Math.cos(e[i][0])*Math.cos(e[i][1]),r=Math.sin(e[i][0])*Math.cos(e[i][1]),n=Math.sin(e[i][1]),2==e[0].length?a[i]=[t,r,n]:3==e[0].length&&(a[i]=[e[i][2]*t,e[i][2]*r,e[i][2]*n]);return a},m=function(e,t){for(var r=new Array(t.length),n=new Array(t.length),a=0;a<t.length;a++)r[a]=t[a][0],n[a]=t[a][1];for(var i,o,u,c,l,f=new Array(2*e+1),h=(r.length,(e+1)*(e+1)),m=0,v=0,g=s.sin(n),y=0,M=new Array(h),a=0;a<2*e+1;a++)f[a]=d(a);for(var b=0;b<e+1;b++){if(0==b){var x=new Array(r.length);x.fill(1),M[b]=x,y=1}else{i=p(b,g,m,v),o=Math.sqrt(2*b+1);for(var S=0;S<b+1;S++)0==S?M[y+b]=s.mul(o,i[S]):(u=o*Math.sqrt(2*f[b-S]/f[b+S]),c=s.cos(s.mul(S,r)),l=s.sin(s.mul(S,r)),M[y+b-S]=s.mul(u,s.mul(i[S],l)),M[y+b+S]=s.mul(u,s.mul(i[S],c)));y=y+2*b+1}v=m,m=i}return M},d=function(e){return 0===e?1:e*d(e-1)},p=function(e,t,r,n){var a=new Array(e+1);switch(e){case 1:var i=s.mul(t,t),o=t,u=s.sqrt(s.sub(1,i));a[0]=o,a[1]=u;break;case 2:var i=s.mul(t,t),c=s.mul(3,i);c=s.sub(c,1),c=s.div(c,2);var l=s.sub(1,i);l=s.sqrt(l),l=s.mul(3,l),l=s.mul(l,t);var f=s.sub(1,i);f=s.mul(3,f),a[0]=c,a[1]=l,a[2]=f;break;default:var i=s.mul(t,t),h=s.sub(1,i),m=2*e-1,d=1;if(m%2==0)for(var p=1;p<m/2+1;p++)d=2*d*p;else for(var p=1;p<(m+1)/2+1;p++)d*=2*p-1;a[e]=s.mul(d,s.pow(h,e/2)),a[e-1]=s.mul(2*e-1,s.mul(t,r[e-1]));for(var v=0;v<e-1;v++){var g=s.mul(2*e-1,s.mul(t,r[v])),y=s.mul(e+v-1,n[v]);a[v]=s.div(s.sub(g,y),e-v)}}return a},v=function(e){for(var t=s.svd(e),r=t.S[0],n=t.U,a=t.S,i=t.V,o=e.length,u=e[0].length,c=Math.max(o,u)*s.epsilon*r,l=a.length,f=new Array(l),h=l-1;h!==-1;h--)a[h]>c?f[h]=1/a[h]:f[h]=0;return s.dot(s.dot(i,s.diag(f)),s.transpose(n))},g=function(e){var t=s.transpose(e);return s.dot(s.inv(s.dot(t,e)),t)},y=function(e,t){var r=(t+1)*(t+1),o=s.rep([r,r],0);o[0][0]=1;var u=s.rep([3,3],0);u[0][0]=e[1][1],u[0][1]=e[1][2],u[0][2]=e[1][0],u[1][0]=e[2][1],u[1][1]=e[2][2],u[1][2]=e[2][0],u[2][0]=e[0][1],u[2][1]=e[0][2],u[2][2]=e[0][0],o=s.setBlock(o,[1,1],[3,3],u);for(var c=u,l=3,f=2;f<t+1;f++){for(var h=s.rep([2*f+1,2*f+1],0),m=-f;m<f+1;m++)for(var d=-f;d<f+1;d++){var p,v,g,y,M;p=0==m?1:0,v=Math.abs(d)==f?2*f*(2*f-1):f*f-d*d,g=Math.sqrt((f*f-m*m)/v),y=Math.sqrt((1+p)*(f+Math.abs(m)-1)*(f+Math.abs(m))/v)*(1-2*p)*.5,M=Math.sqrt((f-Math.abs(m)-1)*(f-Math.abs(m))/v)*(1-p)*-.5,0!=g&&(g*=n(f,m,d,u,c)),0!=y&&(y*=a(f,m,d,u,c)),0!=M&&(M*=i(f,m,d,u,c)),h[m+f][d+f]=g+y+M}o=s.setBlock(o,[l+1,l+1],[l+2*f+1,l+2*f+1],h),c=h,l=l+2*f+1}return o},M=function(e,t,r){var n,a,i;n=0==r?[[1,0,0],[0,1,0],[0,0,1]]:[[1,0,0],[0,Math.cos(r),Math.sin(r)],[0,-Math.sin(r),Math.cos(r)]],a=0==t?[[1,0,0],[0,1,0],[0,0,1]]:[[Math.cos(t),0,-Math.sin(t)],[0,1,0],[Math.sin(t),0,Math.cos(t)]],i=0==e?[[1,0,0],[0,1,0],[0,0,1]]:[[Math.cos(e),Math.sin(e),0],[-Math.sin(e),Math.cos(e),0],[0,0,1]];var o=s.dotMMsmall(a,i);return o=s.dotMMsmall(n,o)};t.exports.forwardSHT=u,t.exports.inverseSHT=c,t.exports.print2Darray=l,t.exports.convertCart2Sph=f,t.exports.convertSph2Cart=h,t.exports.computeRealSH=m,t.exports.factorial=d,t.exports.recurseLegendrePoly=p,t.exports.pinv_svd=v,t.exports.pinv_direct=g,t.exports.getSHrotMtx=y,t.exports.yawPitchRoll2Rzyx=M},{numeric:63}],82:[function(e,t,r){"use strict";function n(e,t,r){var n=e*t,i=a*e,o=i-e,s=i-o,u=e-s,c=a*t,l=c-t,f=c-l,h=t-f,m=n-s*f,d=m-u*f,p=d-s*h,v=u*h-p;return r?(r[0]=v,r[1]=n,r):[v,n]}t.exports=n;var a=+(Math.pow(2,27)+1)},{}],83:[function(e,t,r){"use strict";function n(e,t,r){var n=e+t,a=n-e,i=n-a,o=t-a,s=e-i;return r?(r[0]=s+o,r[1]=n,r):[s+o,n]}t.exports=n},{}],84:[function(e,t,r){"use strict";"use restrict";function n(e){this.roots=new Array(e),this.ranks=new Array(e);for(var t=0;t<e;++t)this.roots[t]=t,this.ranks[t]=0}t.exports=n;var a=n.prototype;Object.defineProperty(a,"length",{get:function(){return this.roots.length}}),a.makeSet=function(){var e=this.roots.length;return this.roots.push(e),this.ranks.push(0),e},a.find=function(e){for(var t=e,r=this.roots;r[e]!==e;)e=r[e];for(;r[t]!==e;){var n=r[t];r[t]=e,t=n}return e},a.link=function(e,t){var r=this.find(e),n=this.find(t);if(r!==n){var a=this.ranks,i=this.roots,o=a[r],s=a[n];o<s?i[r]=n:s<o?i[n]=r:(i[n]=r,++a[r])}}},{}]},{},[14])(14)});
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{}],53:[function(require,module,exports){
-// stats.js - http://github.com/mrdoob/stats.js
-var Stats=function(){function h(a){c.appendChild(a.dom);return a}function k(a){for(var d=0;d<c.children.length;d++)c.children[d].style.display=d===a?"block":"none";l=a}var l=0,c=document.createElement("div");c.style.cssText="position:fixed;top:0;left:0;cursor:pointer;opacity:0.9;z-index:10000";c.addEventListener("click",function(a){a.preventDefault();k(++l%c.children.length)},!1);var g=(performance||Date).now(),e=g,a=0,r=h(new Stats.Panel("FPS","#0ff","#002")),f=h(new Stats.Panel("MS","#0f0","#020"));
-if(self.performance&&self.performance.memory)var t=h(new Stats.Panel("MB","#f08","#201"));k(0);return{REVISION:16,dom:c,addPanel:h,showPanel:k,begin:function(){g=(performance||Date).now()},end:function(){a++;var c=(performance||Date).now();f.update(c-g,200);if(c>e+1E3&&(r.update(1E3*a/(c-e),100),e=c,a=0,t)){var d=performance.memory;t.update(d.usedJSHeapSize/1048576,d.jsHeapSizeLimit/1048576)}return c},update:function(){g=this.end()},domElement:c,setMode:k}};
-Stats.Panel=function(h,k,l){var c=Infinity,g=0,e=Math.round,a=e(window.devicePixelRatio||1),r=80*a,f=48*a,t=3*a,u=2*a,d=3*a,m=15*a,n=74*a,p=30*a,q=document.createElement("canvas");q.width=r;q.height=f;q.style.cssText="width:80px;height:48px";var b=q.getContext("2d");b.font="bold "+9*a+"px Helvetica,Arial,sans-serif";b.textBaseline="top";b.fillStyle=l;b.fillRect(0,0,r,f);b.fillStyle=k;b.fillText(h,t,u);b.fillRect(d,m,n,p);b.fillStyle=l;b.globalAlpha=.9;b.fillRect(d,m,n,p);return{dom:q,update:function(f,
-v){c=Math.min(c,f);g=Math.max(g,f);b.fillStyle=l;b.globalAlpha=1;b.fillRect(0,0,r,m);b.fillStyle=k;b.fillText(e(f)+" "+h+" ("+e(c)+"-"+e(g)+")",t,u);b.drawImage(q,d+a,m,n-a,p,d,m,n-a,p);b.fillRect(d+n-a,m,a,p);b.fillStyle=l;b.globalAlpha=.9;b.fillRect(d+n-a,m,a,e((1-f/v)*p))}}};"object"===typeof module&&(module.exports=Stats);
-
-},{}],54:[function(require,module,exports){
 /* global  */
 "use strict";
 
 const ee = require('event-emitter');
 const THREE = require('three');
 const WEBVR = require('./lib/WebVR');
-const Stats = require('./lib/stats.min');
+//const Stats = require('./lib/stats.min');
 require('./lib/VRControls');
 require('./lib/ViveController');
 require('./lib/OBJLoader');
@@ -50193,7 +50196,7 @@ class Veri {
 
         // update the position of the camera
         this.controls.update();
-        this.stats.update();
+        //this.stats.update();
         if (!this.originalCameraDirection) {
             this.originalCameraDirection = cameraDirection.clone();
             console.log(`setting original camera direction to ${Veri.showVec(cameraDirection)}`);
@@ -50373,8 +50376,8 @@ class Veri {
         }
 
         // add the stats
-        this.stats = new Stats();
-        document.body.appendChild(this.stats.dom);
+        //this.stats = new Stats();
+        //document.body.appendChild(this.stats.dom);
 
         // obtain parameters, applying defaults where necessary
         this.vrParams = vrParams;
@@ -50607,4 +50610,4 @@ class Veri {
 module.exports = Veri;
 window.Veri = Veri;
 
-},{"./audio":44,"./crosshairs":45,"./lib/DeviceOrientationController":46,"./lib/OBJLoader":47,"./lib/VRControls":48,"./lib/VREffect":49,"./lib/ViveController":50,"./lib/WebVR":51,"./lib/stats.min":53,"event-emitter":17,"three":18,"webvr-polyfill":33}]},{},[54]);
+},{"./audio":44,"./crosshairs":45,"./lib/DeviceOrientationController":46,"./lib/OBJLoader":47,"./lib/VRControls":48,"./lib/VREffect":49,"./lib/ViveController":50,"./lib/WebVR":51,"event-emitter":17,"three":18,"webvr-polyfill":33}]},{},[53]);

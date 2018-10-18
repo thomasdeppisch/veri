@@ -10,6 +10,9 @@ class Audio {
         this.rotator = null;
         this.order = null;
         this.channel_order = null;
+        this.sound = null;
+        this.decoder = null;
+        this.gainOut = null;
     }
 
     // function to load samples
@@ -54,19 +57,16 @@ class Audio {
             // "ambisonic" mode reads an ambisonic audio source
             var AudioContext = window.AudioContext;
             this.context = new AudioContext();
-            if (vrParams.audio.multichannel_out)
-              this.context.destination.channelCount = this.context.destination.maxChannelCount;
-
             var sound;
 
             this.order = vrParams.audio.order;
-
             if (!this.order)
               this.order = 1;
 
             // initialize ambisonic rotator
             this.rotator = new ambisonics.sceneRotator(this.context, this.order); // eslint-disable-line
             console.log(this.rotator);
+
 
             this.channel_order = vrParams.audio.channel_order;
             // FuMa to ACN converter
@@ -77,37 +77,47 @@ class Audio {
             }
 
             // output gain
-            var gainOut = this.context.createGain();
+            this.gainOut = this.context.createGain();
 
             // connect graph
             if (vrParams.audio.multichannel_out) {
-              this.rotator.out.connect(this.context.destination);
-              // todo: decoding
-              
+              this.decoder = new jsonDecoder(this.context, this.order);
+              console.log(this.decoder);
+
+              this.decoder.loadDecoderMtx(vrParams.audio.decoder_file);
             } else {
               // initialize ambisonic binaural decoder
-              var decoder = new ambisonics.binDecoder(this.context, this.order); // eslint-disable-line
-              console.log(decoder);
-
-              this.rotator.out.connect(decoder.in);
-              decoder.out.connect(gainOut);
-              gainOut.connect(this.context.destination);
+              this.decoder = new ambisonics.binDecoder(this.context, this.order); // eslint-disable-line
+              console.log(this.decoder);
             }
 
-            // load the audio
-            this.loadSample(this.context, vrParams.audio.src, this.order, decodedBuffer => {
-                sound = this.context.createBufferSource();
-                sound.buffer = decodedBuffer;
-                sound.loop = true;
-                if (this.channel_order == 'fuma') {
-                  sound.connect(converterF2A.in);
-                } else {
-                  sound.connect(this.rotator.in);
-                }
-                sound.start(0);
-                sound.isPlaying = true;
-            });
+            this.audioSrc = vrParams.audio.src;
+
         }
+    }
+
+    initAudio() {
+        // problem: audio wird gestartet bzw. routing wird gemacht, bevor decoder geladen
+        this.rotator.out.connect(this.decoder.in);
+        this.decoder.out.connect(this.gainOut);
+        this.gainOut.connect(this.context.destination);
+
+        // load the audio
+        this.loadSample(this.context, this.audioSrc, this.order, decodedBuffer => {
+            this.sound = this.context.createBufferSource();
+            this.sound.buffer = decodedBuffer;
+            this.sound.loop = true;
+            if (this.channel_order == 'fuma') {
+              this.sound.connect(converterF2A.in);
+            } else {
+              this.sound.connect(this.rotator.in);
+            }
+      })
+    }
+
+    startAudio() {
+      this.sound.start(0);
+      this.sound.isPlaying = true;
     }
 
     changeOrientation(cameraDirection) {
