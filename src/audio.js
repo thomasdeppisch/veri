@@ -13,6 +13,7 @@ class Audio {
         this.sound = null;
         this.decoder = null;
         this.gainOut = null;
+        this.cameraStartDirection = null;
     }
 
     // function to load samples
@@ -92,6 +93,7 @@ class Audio {
             }
 
             this.audioSrc = vrParams.audio.src;
+            this.cameraStartDirection = vrParams.camera.direction;
 
         }
     }
@@ -121,17 +123,31 @@ class Audio {
     }
 
     changeOrientation(cameraDirection) {
-        var cameraCenterDirection = new THREE.Vector3(1, 0, 0);
+        var cameraCenterDirection = this.cameraStartDirection;
+        // calc azim angle
         var directionOnXZPlane = (new THREE.Vector3())
             .copy(cameraDirection)
             .projectOnPlane(new THREE.Vector3(0, 1, 0));
-        var angle = directionOnXZPlane.angleTo(cameraCenterDirection);
-        var cross = (new THREE.Vector3())
+        var azimAngle = directionOnXZPlane.angleTo(cameraCenterDirection);
+        var azimCross = (new THREE.Vector3())
             .crossVectors(directionOnXZPlane, cameraCenterDirection);
-        var signedAngle = (cross.y > 0) ? (angle) : (0 - angle);
-        let angleDegrees = -signedAngle / Math.PI * 180;
-        this.rotator.yaw = angleDegrees;
-        this.rotator.pitch = 0;
+        var signedAzimAngle = (azimCross.y > 0) ? (azimAngle) : (0 - azimAngle);
+        let azimAngleDegrees = -signedAzimAngle / Math.PI * 180;
+        // calc elev angle
+        var directionOnXYPlane = (new THREE.Vector3())
+            .copy(cameraDirection)
+            .projectOnPlane(new THREE.Vector3(0, 0, 1));
+        var elevAngle = directionOnXYPlane.angleTo(cameraCenterDirection);
+        // -90..90
+        if (elevAngle > Math.PI/2)
+          elevAngle = Math.PI - elevAngle;
+        var elevCross = (new THREE.Vector3())
+            .crossVectors(directionOnXYPlane, cameraCenterDirection);
+        var signedElevAngle = (elevCross.z > 0) ? (elevAngle) : (0 - elevAngle);
+        let elevAngleDegrees = signedElevAngle / Math.PI * 180;
+
+        this.rotator.yaw = azimAngleDegrees;
+        this.rotator.pitch = elevAngleDegrees;
         this.rotator.updateRotMtx();
     }
 

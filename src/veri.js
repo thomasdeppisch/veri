@@ -176,12 +176,15 @@ class Veri {
     }
 
     // add an OBJ resource
-    addOBJfunction(resourcePath, resourceName, pos, material) {
+    addOBJ(resourcePath, resourceName, pos, material) {
         let that = this;
         (new THREE.OBJLoader()).load(resourcePath,
             function(object) {
                 that.objects[resourceName] = object;
                 object.position.copy(pos);
+                object.scale.x = 0.01;
+                object.scale.y = 0.01;
+                object.scale.z = 0.01;
                 object.traverse(function(child) {
                     if (child instanceof THREE.Mesh) {
                         child.material = material;
